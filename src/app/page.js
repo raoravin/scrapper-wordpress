@@ -1,103 +1,140 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { Search, Loader2, BookOpen, ExternalLink } from "lucide-react";
+
+export default function UnlockPage() {
+  const [url, setUrl] = useState("");
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFetch = async () => {
+    if (!url) {
+      setError("Please enter a URL");
+      return;
+    }
+    
+    // Simple URL validation
+    if (!url.startsWith('http')) {
+      setError("Please enter a valid URL (starting with http:// or https://)");
+      return;
+    }
+    
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/fetch-blog?url=${encodeURIComponent(url)}`);
+      if (!res.ok) throw new Error("Failed to fetch content");
+      const data = await res.json();
+      setContent(data.content);
+    } catch (error) {
+      console.error("Fetch failed:", error);
+      setError("Error fetching blog content. Please check the URL and try again.");
+      setContent("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleFetch();
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 :from-gray-900 :to-gray-800 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 :text-white mb-2 flex items-center justify-center">
+            <BookOpen className="mr-2 text-blue-600 :text-blue-400" />
+            Unlock Blog Content
+          </h1>
+          <p className="text-gray-600 :text-gray-300 max-w-2xl mx-auto">
+            Remove paywalls and access reader-friendly versions of your favorite blog articles
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        <div className="bg-white :bg-gray-800 rounded-xl shadow p-6 mb-8">
+          <div className="relative">
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Paste blog post URL here..."
+              className="w-full px-4 py-3 pl-10 pr-24 rounded-lg border border-gray-300 :border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all :bg-gray-700 :text-white"
+            />
+            <Search className="absolute left-3 top-3.5 text-gray-400 :text-gray-500" size={18} />
+            
+            <button
+              onClick={handleFetch}
+              disabled={loading}
+              className="absolute right-2 top-2 bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 focus:outline-none text-white font-medium rounded-lg px-4 py-1.5 transition-all  disabled:cursor-not-allowed flex items-center"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin mr-1" size={16} />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                "Unlock"
+              )}
+            </button>
+          </div>
+          
+          {error && (
+            <div className="mt-3 text-red-500 text-sm">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {content && (
+          <div className="bg-white :bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-all">
+            <div className="border-b border-gray-200 :border-gray-700 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800 :text-white flex items-center">
+                <BookOpen className="mr-2" size={18} />
+                Reader View
+              </h2>
+              
+              {url && (
+                <a 
+                  href={url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 :text-blue-400 :hover:text-blue-300 text-sm flex items-center"
+                >
+                  Original Source
+                  <ExternalLink size={14} className="ml-1" />
+                </a>
+              )}
+            </div>
+            
+            <div className="p-6">
+              <div 
+                className="prose prose-lg :prose-invert max-w-none prose-headings:font-bold prose-a:text-blue-600 prose-img:rounded-lg prose-img:mx-auto prose-img:shadow-md prose-pre:bg-gray-100 prose-pre:text-sm prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic prose-hr:my-8"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            </div>
+          </div>
+        )}
+        
+        {!content && !loading && (
+          <div className="bg-white/60 :bg-gray-800/60 rounded-xl border-2 border-dashed border-gray-300 :border-gray-700 p-10 text-center">
+            <BookOpen className="w-16 h-16 mx-auto text-gray-400 :text-gray-600 mb-4" />
+            <h3 className="text-xl font-medium text-gray-700 :text-gray-300 mb-2">No Content Yet</h3>
+            <p className="text-gray-500 :text-gray-400">
+              Enter a blog post URL above and click "Unlock" to view the content in a clean, reader-friendly format.
+            </p>
+          </div>
+        )}
+        
+        <div className="mt-8 text-center text-sm text-gray-500 :text-gray-400">
+          <p>This tool is for educational purposes only. Respect content creators and copyright laws.</p>
+        </div>
+      </div>
     </div>
   );
 }
