@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get('url');
+  const hide = searchParams.get('hide');
 
   if (!url) {
     return NextResponse.json({ error: 'Missing blog URL' }, { status: 400 });
@@ -22,16 +23,15 @@ export async function GET(request) {
 
     // Remove the div with class "news_detail_person_detail"
     $('div.news_details_social_media_icons').remove();
-        $('div.news_details_social_icon_desktop').remove();
-        $('div.speechText').remove();
-                $('div.details-story-wrapper').remove();
-                $('img').remove();
-                        $('h2.news-description').remove();
+    $('div.news_details_social_icon_desktop').remove();
+    $('div.speechText').remove();
+    // $('div.details-story-wrapper').remove();
+    $('img').remove();
+    $('h2.news-description').remove();
 
-
-
-
-
+    if (hide == true) {
+      $('div.details-story-wrapper').remove();
+    }
 
 
     // Try various selectors to find the main content
