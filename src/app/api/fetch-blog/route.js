@@ -25,13 +25,13 @@ export async function GET(request) {
     $('div.news_details_social_media_icons').remove();
     $('div.news_details_social_icon_desktop').remove();
     $('div.speechText').remove();
-    // $('div.details-story-wrapper').remove();
+    $('div.details-story-wrapper').remove();
     $('img').remove();
     $('h2.news-description').remove();
 
-    if (hide == true) {
-      $('div.details-story-wrapper').remove();
-    }
+    // if (hide == true) {
+    //   $('div.details-story-wrapper').remove();
+    // }
 
 
     // Try various selectors to find the main content
