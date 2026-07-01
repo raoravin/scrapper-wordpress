@@ -31,7 +31,7 @@ export default function LiveLawReader() {
     if (!trimmed) return;
 
     setLoading(true);
-    setStatus({ msg: "Connecting to LiveLaw… fetching AMP & full page…", type: "loading" });
+    setStatus({ msg: "Connecting to fetching AMP & full page…", type: "loading" });
     setArticle(null);
 
     try {
@@ -298,9 +298,9 @@ export default function LiveLawReader() {
         <div className="wrap">
           <div className="hdr-logo">
             <div className="hdr-icon">⚖️</div>
-            <h1 className="hdr-title">LiveLaw Reader</h1>
+            <h1 className="hdr-title">Reader</h1>
           </div>
-          <p className="hdr-sub">Paste any LiveLaw URL below to read the full premium article content</p>
+          <p className="hdr-sub">Paste anyURL below to read the full premium article content</p>
         </div>
       </header>
 
@@ -315,7 +315,7 @@ export default function LiveLawReader() {
                   className="search-input"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Paste LiveLaw article URL here..."
+                  placeholder="Paste article URL here..."
                   autoComplete="off"
                   spellCheck={false}
                   autoFocus
