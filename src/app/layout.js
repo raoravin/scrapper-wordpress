@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "LiveLaw Reader",
-  description: "Read LiveLaw premium articles for free",
+  title: "Article Reader",
+  description: "Read and copy full articles",
 };
 
 export default function RootLayout({ children }) {

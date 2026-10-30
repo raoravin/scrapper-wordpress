@@ -27,21 +27,28 @@ async function fetchPage(url, maxRetries = 3) {
   return null;
 }
 
-// LiveLaw (Hocalwire) app API — returns the full story HTML, including paid articles
-const API_BASE = 'https://www.livelaw.in/dev/h-api1';
+// Site config comes from env so no source names live in the repo
+const SITE_BASE = (process.env.SOURCE_BASE_URL || '').replace(/\/+$/, '');
+const SITE_HOST = SITE_BASE ? new URL(SITE_BASE).hostname.replace(/^www\./, '') : '';
+
+// Mobile app API — returns the full story HTML
+const API_BASE = `${SITE_BASE}/dev/h-api1`;
 const API_HEADERS = {
   Accept: 'application/json',
   'User-Agent': 'Hocalwire/113 CFNetwork/3896.100.1.1.1 Darwin/27.0.0',
-  'x-hocalwire-trace': 'LiveLaw-113-IOS-PHONE_iPad_Pro_12.9_inch_3rd_generation',
   'Accept-Language': 'en-IN,en;q=0.9',
 };
 
 async function fetchNewsFromApi(newsId) {
-  const sessionId = process.env.LIVELAW_SESSION_ID;
-  if (!sessionId || !newsId) return null;
+  const sessionId = process.env.SOURCE_SESSION_ID;
+  if (!SITE_BASE || !sessionId || !newsId) return null;
   try {
     const resp = await fetch(`${API_BASE}/news?newsId=${newsId}`, {
-      headers: { ...API_HEADERS, 's-id': sessionId },
+      headers: {
+        ...API_HEADERS,
+        ...(process.env.SOURCE_APP_TRACE && { 'x-hocalwire-trace': process.env.SOURCE_APP_TRACE }),
+        's-id': sessionId,
+      },
       signal: AbortSignal.timeout(30000),
       cache: 'no-store',
     });
@@ -50,7 +57,7 @@ async function fetchNewsFromApi(newsId) {
     const news = data?.news?.[0];
     return news?.story ? news : null;
   } catch (err) {
-    console.error(`LiveLaw API failed for ${newsId}:`, err.message);
+    console.error(`App API failed for ${newsId}:`, err.message);
     return null;
   }
 }
@@ -72,7 +79,7 @@ function apiDateToIso(value) {
 
 function findCitations(text) {
   const patterns = [
-    /\d{4}\s+LiveLaw\s+\([A-Z]+\)\s+\d+/g,
+    /\d{4}\s+[A-Z][A-Za-z]+\s+\([A-Z][A-Za-z]*\)\s+\d+/g,
     /\(\d{4}\)\s+\d+\s+SCC\s+\d+/g,
     /AIR\s+\d{4}\s+SC\s+\d+/g,
     /\d{4}\s+SCC\s+OnLine\s+SC\s+\d+/g,
@@ -281,8 +288,8 @@ function detectFollowRedirectLink($, wrapper = findContentWrapper($)) {
   wrapper.find('a[href]').each((_, a) => {
     if (followUrl) return;
     let href = $(a).attr('href') || '';
-    if (href.startsWith('/')) href = 'https://www.livelaw.in' + href;
-    if (href.includes('livelaw.in')) {
+    if (href.startsWith('/')) href = SITE_BASE + href;
+    if (SITE_HOST && href.includes(SITE_HOST)) {
       try {
         const parsed = new URL(href);
         const path = parsed.pathname;
@@ -370,9 +377,9 @@ async function scrapeArticle(url, followDepth = 1) {
   const idMatch = url.match(/-(\d+)$/);
   result.content_id = idMatch ? idMatch[1] : '';
 
-  // 9. Audio URL (LiveLaw TTS)
+  // 9. Audio URL (site TTS)
   if (result.content_id) {
-    result.audio_url = `https://www.livelaw.in/mp3/news/${result.content_id}.mp3`;
+    result.audio_url = `${SITE_BASE}/mp3/news/${result.content_id}.mp3`;
   }
 
   // 10. Auto-follow stubs/citation pages to get the full write-up
@@ -405,9 +412,9 @@ export async function POST(request) {
 
     if (!url.startsWith('http')) url = 'https://' + url;
 
-    if (!url.includes('livelaw.in')) {
+    if (!SITE_HOST || !url.includes(SITE_HOST)) {
       return NextResponse.json(
-        { success: false, error: 'Please enter a valid LiveLaw URL' },
+        { success: false, error: 'Please enter a valid article URL' },
         { status: 400 }
       );
     }

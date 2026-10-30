@@ -17,7 +17,7 @@ function formatDate(dateStr) {
   }
 }
 
-export default function LiveLawReader() {
+export default function ArticleReader() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ msg: "", type: "" });
@@ -76,7 +76,7 @@ export default function LiveLawReader() {
   const pdfHref = article?.pdf_link
     ? article.pdf_link.startsWith("http")
       ? article.pdf_link
-      : "https://www.livelaw.in" + article.pdf_link
+      : new URL(article.pdf_link, article.url).toString()
     : null;
 
   return (
