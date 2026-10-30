@@ -27,6 +27,122 @@ async function fetchPage(url, maxRetries = 3) {
   return null;
 }
 
+// LiveLaw (Hocalwire) app API — returns the full story HTML, including paid articles
+const API_BASE = 'https://www.livelaw.in/dev/h-api1';
+const API_HEADERS = {
+  Accept: 'application/json',
+  'User-Agent': 'Hocalwire/113 CFNetwork/3896.100.1.1.1 Darwin/27.0.0',
+  'x-hocalwire-trace': 'LiveLaw-113-IOS-PHONE_iPad_Pro_12.9_inch_3rd_generation',
+  'Accept-Language': 'en-IN,en;q=0.9',
+};
+
+async function fetchNewsFromApi(newsId) {
+  const sessionId = process.env.LIVELAW_SESSION_ID;
+  if (!sessionId || !newsId) return null;
+  try {
+    const resp = await fetch(`${API_BASE}/news?newsId=${newsId}`, {
+      headers: { ...API_HEADERS, 's-id': sessionId },
+      signal: AbortSignal.timeout(30000),
+      cache: 'no-store',
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const news = data?.news?.[0];
+    return news?.story ? news : null;
+  } catch (err) {
+    console.error(`LiveLaw API failed for ${newsId}:`, err.message);
+    return null;
+  }
+}
+
+function getNewsId(url) {
+  try {
+    const match = new URL(url).pathname.replace(/\/+$/, '').match(/-(\d+)$/);
+    return match ? match[1] : '';
+  } catch {
+    return '';
+  }
+}
+
+// API dates look like "2026-10-30 06:00:11.0" (IST)
+function apiDateToIso(value) {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/);
+  return match ? `${match[1]}T${match[2]}+05:30` : '';
+}
+
+function findCitations(text) {
+  const patterns = [
+    /\d{4}\s+LiveLaw\s+\([A-Z]+\)\s+\d+/g,
+    /\(\d{4}\)\s+\d+\s+SCC\s+\d+/g,
+    /AIR\s+\d{4}\s+SC\s+\d+/g,
+    /\d{4}\s+SCC\s+OnLine\s+SC\s+\d+/g,
+  ];
+  const citations = new Set();
+  for (const pat of patterns) {
+    const matches = text.match(pat) || [];
+    matches.forEach((m) => citations.add(m));
+  }
+  return Array.from(citations);
+}
+
+async function scrapeArticleFromApi(url, followDepth = 1) {
+  const newsId = getNewsId(url);
+  const news = await fetchNewsFromApi(newsId);
+  if (!news) return null;
+
+  const $ = cheerio.load(news.story);
+  const body = $('body');
+  body.find('script, style, noscript').remove();
+  const content = extractTextFromElement($, body);
+  const contentHtml = body.html() || '';
+
+  const citedCases = findCitations(body.text());
+  if (news.citation && !citedCases.includes(news.citation)) citedCases.unshift(news.citation);
+
+  const result = {
+    url,
+    scraped_at: new Date().toISOString(),
+    source: 'api',
+    title: news.heading || '',
+    headline: news.heading || '',
+    description: news.description || news.fb_title_desc || '',
+    author: news.authorName || news.source || '',
+    published_date: apiDateToIso(news.date_news),
+    modified_date: '',
+    section: news.maincat_name || '',
+    image_url: news.fb_media || news.media?.[0]?.url || '',
+    canonical_url: news.url || '',
+    tags: news.tags || '',
+    citation: news.citation || '',
+    case_number: news.caseNumber || '',
+    content,
+    content_html: contentHtml,
+    content_length: content.length,
+    pdf_link: news.orderPdf || extractJudgmentPdfLink($, body),
+    cited_cases: citedCases,
+    content_id: String(news.newsId || newsId),
+    audio_url: news.news_speech_file_path || '',
+  };
+
+  // Short stub stories just point at the full write-up — follow it
+  if (followDepth > 0 && content.length < 1000) {
+    const followUrl = detectFollowRedirectLink($, body);
+    if (followUrl && getNewsId(followUrl) !== result.content_id) {
+      const followed = await scrapeArticleFromApi(followUrl, followDepth - 1);
+      if (followed?.content) {
+        result.content = followed.content;
+        result.content_html = followed.content_html;
+        result.content_length = followed.content_length;
+        if (!result.pdf_link && followed.pdf_link) result.pdf_link = followed.pdf_link;
+        result.cited_cases = Array.from(new Set([...result.cited_cases, ...followed.cited_cases]));
+        result.followed_url = followUrl;
+      }
+    }
+  }
+
+  return result;
+}
+
 function extractJsonLd($) {
   let result = null;
   $('script[type="application/ld+json"]').each((_, el) => {
@@ -59,7 +175,7 @@ function extractTextFromElement($, el) {
 
   const paragraphs = [];
   clone.find('p, h1, h2, h3, h4, h5, h6, li, blockquote').each((_, p) => {
-    const text = $(p).text().trim();
+    const text = $(p).text().replace(/\s+/g, ' ').trim();
     if (text && text.length > 5) paragraphs.push(text);
   });
 
@@ -107,8 +223,7 @@ function parseMetadata($) {
   return meta;
 }
 
-function extractJudgmentPdfLink($) {
-  const wrapper = findContentWrapper($) || $('body');
+function extractJudgmentPdfLink($, wrapper = findContentWrapper($) || $('body')) {
   let pdfLink = '';
   wrapper.find('a[href]').each((_, a) => {
     if (pdfLink) return;
@@ -127,19 +242,7 @@ function extractJudgmentPdfLink($) {
 function extractCitedCases($) {
   const wrapper = findContentWrapper($);
   if (!wrapper) return [];
-  const text = wrapper.text();
-  const patterns = [
-    /\d{4}\s+LiveLaw\s+\([A-Z]+\)\s+\d+/g,
-    /\(\d{4}\)\s+\d+\s+SCC\s+\d+/g,
-    /AIR\s+\d{4}\s+SC\s+\d+/g,
-    /\d{4}\s+SCC\s+OnLine\s+SC\s+\d+/g,
-  ];
-  const citations = new Set();
-  for (const pat of patterns) {
-    const matches = text.match(pat) || [];
-    matches.forEach((m) => citations.add(m));
-  }
-  return Array.from(citations);
+  return findCitations(wrapper.text());
 }
 
 function extractHtmlContent($) {
@@ -172,8 +275,7 @@ function tryAmpUrl(url) {
   return null;
 }
 
-function detectFollowRedirectLink($) {
-  const wrapper = findContentWrapper($);
+function detectFollowRedirectLink($, wrapper = findContentWrapper($)) {
   if (!wrapper) return null;
   let followUrl = null;
   wrapper.find('a[href]').each((_, a) => {
@@ -201,7 +303,12 @@ function detectFollowRedirectLink($) {
 }
 
 async function scrapeArticle(url, followDepth = 1) {
+  // 0. Prefer the app API — full story, no HTML parsing guesswork
+  const apiResult = await scrapeArticleFromApi(url, followDepth);
+  if (apiResult?.content) return apiResult;
+
   const result = {
+    source: 'html',
     url,
     scraped_at: new Date().toISOString(),
     content: '',
